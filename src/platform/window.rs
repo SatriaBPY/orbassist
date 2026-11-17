@@ -18,8 +18,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     AppendMenuW, BM_GETCHECK, BM_SETCHECK, CB_ADDSTRING, CB_GETCURSEL, CB_SETCURSEL, CS_HREDRAW,
     CS_VREDRAW, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyMenu, DispatchMessageW,
     GetDlgItem, GetMessageW, GetWindowRect, GetWindowTextW, HCURSOR, HMENU, HWND_TOPMOST,
-    IDC_ARROW, IsWindowVisible, LoadCursorW, MB_ICONERROR, MB_ICONINFORMATION, MB_OK,
-    MENU_ITEM_FLAGS, MESSAGEBOX_STYLE, MF_SEPARATOR, MSG, MessageBoxW, PostMessageW,
+    IDC_ARROW, InvalidateRect, IsWindowVisible, LoadCursorW, MB_ICONERROR, MB_ICONINFORMATION,
+    MB_OK, MENU_ITEM_FLAGS, MESSAGEBOX_STYLE, MF_SEPARATOR, MSG, MessageBoxW, PostMessageW,
     PostQuitMessage, RegisterClassExW, SW_SHOWNA, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
     SWP_NOZORDER, SetForegroundWindow, SetTimer, SetWindowPos, ShowWindow, TPM_NONOTIFY,
     TPM_RETURNCMD, TPM_RIGHTBUTTON, TrackPopupMenu, TranslateMessage, WINDOW_EX_STYLE,
@@ -30,6 +30,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WS_POPUP, WS_VISIBLE,
 };
 use windows::core::{HSTRING, PCWSTR};
+
+use super::theme;
 
 /// Pesan jendela khusus Orb.
 pub const WM_ORB_FOREGROUND: u32 = WM_APP + 1;
@@ -500,15 +502,38 @@ pub fn combo_add(parent: HWND, id: i32, text: &str) {
     }
 }
 
-pub fn is_checked(parent: HWND, id: i32) -> bool {
-    let Ok(child) = (unsafe { GetDlgItem(Some(parent), id) }) else {
-        return false;
-    };
+pub fn is_checked_handle(child: HWND) -> bool {
     // SAFETY: child adalah tombol checkbox.
     unsafe {
         windows::Win32::UI::WindowsAndMessaging::SendMessageW(child, BM_GETCHECK, None, None).0
             == BST_CHECKED
     }
+}
+
+pub fn is_checked(parent: HWND, id: i32) -> bool {
+    let Ok(child) = (unsafe { GetDlgItem(Some(parent), id) }) else {
+        return false;
+    };
+    is_checked_handle(child)
+}
+
+/// Membalik status checkbox dan menggambar ulang kontrolnya.
+pub fn toggle_checked(parent: HWND, id: i32) -> bool {
+    let checked = !is_checked(parent, id);
+    set_checked(parent, id, checked);
+    if let Ok(child) = unsafe { GetDlgItem(Some(parent), id) } {
+        // SAFETY: child valid milik proses ini.
+        let _ = unsafe { InvalidateRect(Some(child), None, true) };
+    }
+    checked
+}
+
+/// Teks sebuah jendela/kontrol.
+pub fn window_text(hwnd: HWND) -> String {
+    let mut buffer = [0u16; 256];
+    // SAFETY: buffer milik pemanggil dengan panjang yang benar.
+    let len = unsafe { GetWindowTextW(hwnd, &mut buffer) };
+    String::from_utf16_lossy(&buffer[..len.max(0) as usize])
 }
 
 pub fn set_checked(parent: HWND, id: i32, checked: bool) {
@@ -529,13 +554,10 @@ pub fn set_checked(parent: HWND, id: i32, checked: bool) {
 
 /// Menerapkan font UI default ke kontrol anak.
 pub fn apply_font(control: HWND) {
-    // SAFETY: mengambil font GUI sistem; tidak perlu dihapus pemanggil.
-    let font = unsafe {
-        windows::Win32::Graphics::Gdi::GetStockObject(
-            windows::Win32::Graphics::Gdi::DEFAULT_GUI_FONT,
-        )
-    };
-    // SAFETY: control valid.
+    // SAFETY: control valid milik proses ini.
+    let dpi = unsafe { GetDpiForWindow(control) };
+    let font = theme::ui_font(dpi);
+    // SAFETY: control valid dan font di-cache selama proses hidup.
     unsafe {
         windows::Win32::UI::WindowsAndMessaging::SendMessageW(
             control,

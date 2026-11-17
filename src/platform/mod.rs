@@ -4,5 +4,6 @@ pub mod hotkey;
 pub mod input;
 pub mod render;
 pub mod startup;
+pub mod theme;
 pub mod tray;
 pub mod window;

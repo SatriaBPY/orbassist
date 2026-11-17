@@ -1,18 +1,32 @@
 //! Form pengaturan native (F9): ukuran, opacity, hotkey, tema, dan isi slot.
+//!
+//! Form memakai kontrol Win32 asli, tetapi diwarnai manual (background, label,
+//! tombol, dan checkbox digambar sendiri) agar mengikuti tema gelap/terang dan
+//! visual styles modern.
 
 use std::cell::RefCell;
+use std::ffi::c_void;
 use std::path::PathBuf;
 
 use anyhow::Result;
-use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+use windows::Win32::Foundation::{COLORREF, HDC, HWND, LPARAM, LRESULT, RECT, WPARAM};
+use windows::Win32::Graphics::Gdi::{
+    CreatePen, CreateSolidBrush, DRAW_TEXT_FORMAT, DT_CENTER, DT_LEFT, DT_NOPREFIX, DT_SINGLELINE,
+    DT_VCENTER, DeleteObject, DrawTextW, FillRect, GetClientRect, HBRUSH, HFONT, HGDIOBJ, LineTo,
+    MoveToEx, PS_NULL, PS_SOLID, RoundRect, SelectObject, SetBkColor, SetBkMode, SetTextColor,
+    TRANSPARENT,
+};
+use windows::Win32::UI::Controls::{DRAWITEMSTRUCT, ODS_SELECTED};
 use windows::Win32::UI::WindowsAndMessaging::{
-    BS_AUTOCHECKBOX, BS_PUSHBUTTON, CBS_DROPDOWNLIST, DestroyWindow, ES_AUTOHSCROLL, PostMessageW,
-    WINDOW_STYLE, WM_CLOSE, WM_COMMAND, WM_DESTROY, WS_BORDER, WS_TABSTOP, WS_VSCROLL,
+    BS_OWNERDRAW, CBS_DROPDOWNLIST, DestroyWindow, ES_AUTOHSCROLL, GetClassNameW, PostMessageW,
+    WINDOW_STYLE, WM_CLOSE, WM_COMMAND, WM_CTLCOLORBTN, WM_CTLCOLOREDIT, WM_CTLCOLORLISTBOX,
+    WM_CTLCOLORSTATIC, WM_DESTROY, WM_DRAWITEM, WM_ERASEBKGND, WS_BORDER, WS_TABSTOP, WS_VSCROLL,
 };
 
 use crate::config::{
     Action, ActionKind, Config, MAX_BALL_SIZE, MIN_BALL_SIZE, SLOT_COUNT, Slot, Theme,
 };
+use crate::platform::theme;
 use crate::platform::window::{self, WM_ORB_SETTINGS_SAVED};
 
 pub const CLASS_NAME: &str = "OrbSettingsWindow";

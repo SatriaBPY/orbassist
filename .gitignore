@@ -1,8 +1,9 @@
-# Exclude markdown files
-*.md
-
 # Exclude docs directory
 docs/
 
 # Exclude build output
 target/
+
+# Ignore all .md files, but re-include README.md at root
+*.md
+!README.md
