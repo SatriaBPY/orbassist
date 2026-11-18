@@ -45,6 +45,7 @@ pub fn run(action: &Action) -> Result<(), ActionError> {
             input::send_combo(hotkey)?;
         }
         Action::System { name } => run_system(*name)?,
+        Action::Submenu { .. } => {}
     }
     log::info!("aksi dijalankan: {}", action.describe());
     Ok(())
@@ -54,11 +55,20 @@ fn run_system(name: SystemAction) -> Result<(), ActionError> {
     const VK_VOLUME_MUTE: u16 = 0xAD;
     const VK_VOLUME_DOWN: u16 = 0xAE;
     const VK_VOLUME_UP: u16 = 0xAF;
+    const VK_MEDIA_NEXT_TRACK: u16 = 0xB0;
+    const VK_MEDIA_PREV_TRACK: u16 = 0xB1;
+    const VK_MEDIA_PLAY_PAUSE: u16 = 0xB3;
 
     match name {
         SystemAction::VolumeUp => input::send_key(VK_VOLUME_UP)?,
         SystemAction::VolumeDown => input::send_key(VK_VOLUME_DOWN)?,
         SystemAction::Mute => input::send_key(VK_VOLUME_MUTE)?,
+        SystemAction::MuteMic => input::mute_microphone()?,
+        SystemAction::MediaPlayPause => input::send_key(VK_MEDIA_PLAY_PAUSE)?,
+        SystemAction::MediaNext => input::send_key(VK_MEDIA_NEXT_TRACK)?,
+        SystemAction::MediaPrev => input::send_key(VK_MEDIA_PREV_TRACK)?,
+        SystemAction::BrightnessUp => input::adjust_brightness(10)?,
+        SystemAction::BrightnessDown => input::adjust_brightness(-10)?,
         SystemAction::Lock => input::lock_workstation()?,
         SystemAction::Screenshot => input::shell_open("ms-screenclip:", None)?,
     }
